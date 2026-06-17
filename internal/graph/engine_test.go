@@ -9,7 +9,7 @@ func TestCreateAndGetNode(t *testing.T) {
 	g := New()
 
 	node, err := g.CreateNode(NodeTypeFunction, map[string]interface{}{
-		"name": "testFunc",
+		"name":     "testFunc",
 		"language": "go",
 	})
 	if err != nil {
@@ -52,7 +52,7 @@ func TestUpdateNode(t *testing.T) {
 	})
 
 	updated, err := g.UpdateNode(node.UUID, map[string]interface{}{
-		"name":      "AdminService",
+		"name":        "AdminService",
 		"is_abstract": true,
 	})
 	if err != nil {

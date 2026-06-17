@@ -2,12 +2,12 @@
 // to the Cortex graph server, receive tasks, and execute them via LLMs.
 //
 // Agent Lifecycle:
-//   1. Connect to the graph server via WebSocket
-//   2. Subscribe to task assignments for their role
-//   3. On receiving a task, fetch context from the graph
-//   4. Build a prompt and call the LLM
-//   5. Parse the LLM response and write results back to the graph
-//   6. Update task status
+//  1. Connect to the graph server via WebSocket
+//  2. Subscribe to task assignments for their role
+//  3. On receiving a task, fetch context from the graph
+//  4. Build a prompt and call the LLM
+//  5. Parse the LLM response and write results back to the graph
+//  6. Update task status
 package agent
 
 import (
@@ -46,19 +46,19 @@ const (
 // Agent represents a single AI agent that connects to the graph server,
 // receives tasks, and executes them using an LLM.
 type Agent struct {
-	ID       string    `json:"id"`
-	Type     AgentType `json:"type"`
-	Status   string    `json:"status"` // idle, working, offline
-	ServerURL string   `json:"server_url"`
+	ID        string    `json:"id"`
+	Type      AgentType `json:"type"`
+	Status    string    `json:"status"` // idle, working, offline
+	ServerURL string    `json:"server_url"`
 
 	// Dependencies
 	llm    LLMClient
 	engine *graph.GraphEngine // local graph copy (cached from server)
 
 	// Connection
-	conn   *websocket.Conn
-	done   chan struct{}
-	mu     sync.Mutex
+	conn *websocket.Conn
+	done chan struct{}
+	mu   sync.Mutex
 
 	// LLM configuration
 	systemPrompt string
@@ -508,11 +508,4 @@ func (a *Agent) Disconnect() error {
 // SetGraphEngine attaches a local graph engine for testing/caching.
 func (a *Agent) SetGraphEngine(engine *graph.GraphEngine) {
 	a.engine = engine
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

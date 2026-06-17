@@ -45,15 +45,15 @@ var SupportedLanguages = map[string]string{
 // In production, this would use tree-sitter. For now, we use regex with
 // reasonable accuracy for common patterns.
 type LanguageParser struct {
-	Name              string
-	Extensions        []string
-	CommentStyles     []string
-	FunctionPattern   *regexp.Regexp
-	ClassPattern      *regexp.Regexp
-	MethodPattern     *regexp.Regexp
-	InterfacePattern  *regexp.Regexp
-	ImportPattern     *regexp.Regexp
-	ModulePattern     *regexp.Regexp
+	Name             string
+	Extensions       []string
+	CommentStyles    []string
+	FunctionPattern  *regexp.Regexp
+	ClassPattern     *regexp.Regexp
+	MethodPattern    *regexp.Regexp
+	InterfacePattern *regexp.Regexp
+	ImportPattern    *regexp.Regexp
+	ModulePattern    *regexp.Regexp
 }
 
 // Indexer watches a directory and maintains the graph in sync with the filesystem.
@@ -132,50 +132,50 @@ func New(engine *graph.GraphEngine, rootPath string, ignore []string) (*Indexer,
 func (idx *Indexer) registerParsers() {
 	// Go parser
 	idx.parsers["go"] = &LanguageParser{
-		Name:       "go",
-		Extensions: []string{".go"},
-		FunctionPattern: regexp.MustCompile(`func\s+(?:\([^)]*\)\s+)?([A-Za-z_]\w*)\s*\(`),
-		ClassPattern:    nil,
-		MethodPattern:   regexp.MustCompile(`func\s+\([^)]*\)\s+([A-Za-z_]\w*)\s*\(`),
+		Name:             "go",
+		Extensions:       []string{".go"},
+		FunctionPattern:  regexp.MustCompile(`func\s+(?:\([^)]*\)\s+)?([A-Za-z_]\w*)\s*\(`),
+		ClassPattern:     nil,
+		MethodPattern:    regexp.MustCompile(`func\s+\([^)]*\)\s+([A-Za-z_]\w*)\s*\(`),
 		InterfacePattern: regexp.MustCompile(`type\s+([A-Za-z_]\w*)\s+interface\s*\{`),
-		ImportPattern:   regexp.MustCompile(`(?:"([^"]+)"|'([^']+)')`),
-		ModulePattern:   regexp.MustCompile(`(?:^|\n)\s*package\s+(\w+)`),
+		ImportPattern:    regexp.MustCompile(`(?:"([^"]+)"|'([^']+)')`),
+		ModulePattern:    regexp.MustCompile(`(?:^|\n)\s*package\s+(\w+)`),
 	}
 
 	// PHP parser
 	idx.parsers["php"] = &LanguageParser{
-		Name:       "php",
-		Extensions: []string{".php"},
-		FunctionPattern: regexp.MustCompile(`function\s+([A-Za-z_]\w*)\s*\(`),
-		ClassPattern:    regexp.MustCompile(`(?:abstract\s+)?class\s+([A-Za-z_]\w*)`),
-		MethodPattern:   regexp.MustCompile(`(?:public|protected|private|static|abstract)?\s*function\s+([A-Za-z_]\w*)\s*\(`),
+		Name:             "php",
+		Extensions:       []string{".php"},
+		FunctionPattern:  regexp.MustCompile(`function\s+([A-Za-z_]\w*)\s*\(`),
+		ClassPattern:     regexp.MustCompile(`(?:abstract\s+)?class\s+([A-Za-z_]\w*)`),
+		MethodPattern:    regexp.MustCompile(`(?:public|protected|private|static|abstract)?\s*function\s+([A-Za-z_]\w*)\s*\(`),
 		InterfacePattern: regexp.MustCompile(`interface\s+([A-Za-z_]\w*)`),
-		ImportPattern:   regexp.MustCompile(`(?:use|import|require(?:_once)?)\s+([^;]+)`),
-		ModulePattern:   regexp.MustCompile(`(?:^|\n)\s*namespace\s+([^;]+)`),
+		ImportPattern:    regexp.MustCompile(`(?:use|import|require(?:_once)?)\s+([^;]+)`),
+		ModulePattern:    regexp.MustCompile(`(?:^|\n)\s*namespace\s+([^;]+)`),
 	}
 
 	// Python parser
 	idx.parsers["python"] = &LanguageParser{
-		Name:       "python",
-		Extensions: []string{".py"},
-		FunctionPattern: regexp.MustCompile(`(?:^|\n)\s*def\s+([A-Za-z_]\w*)\s*\(`),
-		ClassPattern:    regexp.MustCompile(`(?:^|\n)\s*class\s+([A-Za-z_]\w*)`),
-		MethodPattern:   regexp.MustCompile(`(?:^|\n)\s+def\s+([A-Za-z_]\w*)\s*\(`),
+		Name:             "python",
+		Extensions:       []string{".py"},
+		FunctionPattern:  regexp.MustCompile(`(?:^|\n)\s*def\s+([A-Za-z_]\w*)\s*\(`),
+		ClassPattern:     regexp.MustCompile(`(?:^|\n)\s*class\s+([A-Za-z_]\w*)`),
+		MethodPattern:    regexp.MustCompile(`(?:^|\n)\s+def\s+([A-Za-z_]\w*)\s*\(`),
 		InterfacePattern: nil,
-		ImportPattern:   regexp.MustCompile(`(?:from\s+(\S+)\s+)?import\s+(\S+)`),
-		ModulePattern:   nil,
+		ImportPattern:    regexp.MustCompile(`(?:from\s+(\S+)\s+)?import\s+(\S+)`),
+		ModulePattern:    nil,
 	}
 
 	// JavaScript/TypeScript parser
 	idx.parsers["javascript"] = &LanguageParser{
-		Name:       "javascript",
-		Extensions: []string{".js", ".jsx", ".ts", ".tsx"},
-		FunctionPattern: regexp.MustCompile(`(?:function\s+|const\s+\w+\s*=\s*(?:async\s+)?(?:function\s*)?\()([A-Za-z_$]\w*)?`),
-		ClassPattern:    regexp.MustCompile(`class\s+([A-Za-z_$]\w*)`),
-		MethodPattern:   regexp.MustCompile(`(\w+)\s*\([^)]*\)\s*\{`),
+		Name:             "javascript",
+		Extensions:       []string{".js", ".jsx", ".ts", ".tsx"},
+		FunctionPattern:  regexp.MustCompile(`(?:function\s+|const\s+\w+\s*=\s*(?:async\s+)?(?:function\s*)?\()([A-Za-z_$]\w*)?`),
+		ClassPattern:     regexp.MustCompile(`class\s+([A-Za-z_$]\w*)`),
+		MethodPattern:    regexp.MustCompile(`(\w+)\s*\([^)]*\)\s*\{`),
 		InterfacePattern: regexp.MustCompile(`interface\s+([A-Za-z_$]\w*)`),
-		ImportPattern:   regexp.MustCompile(`(?:import\s+(?:\{[^}]*\}|[^;]+)|require\s*\(['"]([^'"]+)['"]\))`),
-		ModulePattern:   nil,
+		ImportPattern:    regexp.MustCompile(`(?:import\s+(?:\{[^}]*\}|[^;]+)|require\s*\(['"]([^'"]+)['"]\))`),
+		ModulePattern:    nil,
 	}
 
 	// Also register "typescript" pointing to the same parser
@@ -259,13 +259,13 @@ func (idx *Indexer) Scan() (*ScanResult, error) {
 
 // ScanResult contains the results of a full scan.
 type ScanResult struct {
-	StartTime     time.Time `json:"start_time"`
-	EndTime       time.Time `json:"end_time"`
+	StartTime     time.Time     `json:"start_time"`
+	EndTime       time.Time     `json:"end_time"`
 	Duration      time.Duration `json:"duration"`
-	Files         []string   `json:"files"`
-	FileCount     int        `json:"file_count"`
-	EntitiesFound int        `json:"entities_found"`
-	Errors        []string   `json:"errors"`
+	Files         []string      `json:"files"`
+	FileCount     int           `json:"file_count"`
+	EntitiesFound int           `json:"entities_found"`
+	Errors        []string      `json:"errors"`
 }
 
 // FileResult contains the result of indexing a single file.
@@ -411,44 +411,6 @@ func (idx *Indexer) indexFile(absPath, relPath string) *FileResult {
 					impNodes := idx.graph.FindNodeByName(imp)
 					if len(fileNodes) > 0 && len(impNodes) > 0 {
 						idx.graph.CreateEdge(fileNodes[0].UUID, impNodes[0].UUID, graph.EdgeImports, nil)
-					}
-				}
-			}
-		}
-	}
-
-	// Extract CALLS edges: find function call patterns and link to known functions
-		callPattern := regexp.MustCompile(`([a-zA-Z_][a-zA-Z0-9_]*)\s*\(`)
-	callMatches := callPattern.FindAllStringSubmatch(content, -1)
-	seen := make(map[string]bool)
-	for _, m := range callMatches {
-		if len(m) > 1 {
-			callName := m[1]
-			if isKeyword(callName) || seen[callName] {
-				continue
-			}
-			seen[callName] = true
-			callees := idx.graph.FindNodeByName(callName)
-			if len(callees) == 0 {
-				// Unresolved call — mark as dynamic
-				fileNodes := idx.graph.FindNodeByName(relPath)
-				if len(fileNodes) > 0 {
-					idx.graph.CreateEdge(fileNodes[0].UUID, "", graph.EdgeCalls, map[string]interface{}{
-						"call_type": "dynamic",
-						"target":    callName,
-						"file":      relPath,
-					})
-				}
-				continue
-			}
-			for _, callee := range callees {
-				if callee.Type == graph.NodeTypeFunction || callee.Type == graph.NodeTypeMethod {
-					fileNodes := idx.graph.FindNodeByName(relPath)
-					if len(fileNodes) > 0 {
-						idx.graph.CreateEdge(fileNodes[0].UUID, callee.UUID, graph.EdgeCalls, map[string]interface{}{
-							"call_type": "static",
-							"file":      relPath,
-						})
 					}
 				}
 			}

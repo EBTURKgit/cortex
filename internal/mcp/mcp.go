@@ -66,10 +66,10 @@ type PropertySchema struct {
 
 // Server implements the Model Context Protocol for AI tool integration.
 type Server struct {
-	engine  *graph.GraphEngine
-	reader  *bufio.Scanner
-	writer  io.Writer
-	logger  *logging.Logger
+	engine *graph.GraphEngine
+	reader *bufio.Scanner
+	writer io.Writer
+	logger *logging.Logger
 
 	// Server info
 	serverInfo map[string]interface{}
@@ -274,8 +274,8 @@ func (s *Server) handleToolsCall(req JSONRPCRequest) {
 	}
 
 	s.logger.Debug("Tool call", map[string]interface{}{
-		"tool":    params.Name,
-		"args":    params.Arguments,
+		"tool": params.Name,
+		"args": params.Arguments,
 	})
 
 	var result interface{}
@@ -498,10 +498,10 @@ func (s *Server) handleProjectStructure(args map[string]interface{}) (interface{
 	}
 
 	return map[string]interface{}{
-		"total_files":  len(files),
+		"total_files":   len(files),
 		"total_modules": len(modules),
-		"files":        fileSummaries,
-		"modules":      moduleSummaries,
+		"files":         fileSummaries,
+		"modules":       moduleSummaries,
 	}, nil
 }
 
@@ -612,11 +612,4 @@ func summarizeNodes(nodes []*graph.Node, max int) []map[string]interface{} {
 		result = append(result, nodeSummary(n))
 	}
 	return result
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

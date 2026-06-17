@@ -30,15 +30,15 @@ const (
 
 // Step represents a single build step in the checklist.
 type Step struct {
-	ID          string     `json:"id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	Status      StepStatus `json:"status"`
-	Dependencies []string  `json:"dependencies"` // step IDs that must be completed first
-	StartedAt   *time.Time `json:"started_at,omitempty"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	Error       string     `json:"error,omitempty"`
-	Output      string     `json:"output,omitempty"`
+	ID           string     `json:"id"`
+	Name         string     `json:"name"`
+	Description  string     `json:"description"`
+	Status       StepStatus `json:"status"`
+	Dependencies []string   `json:"dependencies"` // step IDs that must be completed first
+	StartedAt    *time.Time `json:"started_at,omitempty"`
+	CompletedAt  *time.Time `json:"completed_at,omitempty"`
+	Error        string     `json:"error,omitempty"`
+	Output       string     `json:"output,omitempty"`
 }
 
 // Checklist manages a sequence of build steps with dependency tracking.
@@ -83,7 +83,7 @@ func LoadChecklist(filePath string) (*Checklist, error) {
 	c.filePath = filePath
 
 	logging.Info("Checklist loaded", map[string]interface{}{
-		"steps":    len(c.steps),
+		"steps":     len(c.steps),
 		"completed": c.CountCompleted(),
 	})
 
@@ -268,12 +268,12 @@ func (c *Checklist) Summary() map[string]int {
 	defer c.mu.Unlock()
 
 	summary := map[string]int{
-		"total":     len(c.steps),
-		"pending":   0,
+		"total":       len(c.steps),
+		"pending":     0,
 		"in_progress": 0,
-		"completed": 0,
-		"failed":    0,
-		"verified":  0,
+		"completed":   0,
+		"failed":      0,
+		"verified":    0,
 	}
 
 	for _, step := range c.steps {

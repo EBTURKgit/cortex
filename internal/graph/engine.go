@@ -89,19 +89,19 @@ type Edge struct {
 
 // ChangeEvent is emitted by the graph engine on every mutation.
 type ChangeEvent struct {
-	Type       string      `json:"type"`       // "create", "update", "delete"
-	NodeType   string      `json:"node_type"`   // node type (empty for edge events)
-	EdgeType   string      `json:"edge_type"`   // edge type (empty for node events)
-	EntityID   string      `json:"entity_id"`  // node UUID or "source:type:target" for edges
+	Type       string      `json:"type"`      // "create", "update", "delete"
+	NodeType   string      `json:"node_type"` // node type (empty for edge events)
+	EdgeType   string      `json:"edge_type"` // edge type (empty for node events)
+	EntityID   string      `json:"entity_id"` // node UUID or "source:type:target" for edges
 	Properties interface{} `json:"properties,omitempty"`
 }
 
 // Lock represents an advisory lock on a node (used for task assignment).
 type Lock struct {
-	NodeUUID   string    `json:"node_uuid"`
-	AgentID    string    `json:"agent_id"`
-	LockedAt   time.Time `json:"locked_at"`
-	ExpiresAt  time.Time `json:"expires_at"`
+	NodeUUID  string    `json:"node_uuid"`
+	AgentID   string    `json:"agent_id"`
+	LockedAt  time.Time `json:"locked_at"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 // ============================================================
@@ -113,16 +113,16 @@ const MaxNodes = 1_000_000
 
 // GraphEngine is a thread-safe in-memory property graph with indexing and events.
 type GraphEngine struct {
-	mu      sync.RWMutex
-	nodes   map[string]*Node
-	edges   []*Edge
+	mu    sync.RWMutex
+	nodes map[string]*Node
+	edges []*Edge
 
 	// Indexes
-	typeIndex   map[string]map[string]*Node  // nodeType -> {uuid: node}
-	nameIndex   map[string][]*Node           // property "name" -> nodes
-	edgeIndex   map[string][]*Edge           // edgeType -> []edges
-	sourceIndex map[string][]*Edge           // sourceUUID -> []edges
-	targetIndex map[string][]*Edge           // targetUUID -> []edges
+	typeIndex   map[string]map[string]*Node // nodeType -> {uuid: node}
+	nameIndex   map[string][]*Node          // property "name" -> nodes
+	edgeIndex   map[string][]*Edge          // edgeType -> []edges
+	sourceIndex map[string][]*Edge          // sourceUUID -> []edges
+	targetIndex map[string][]*Edge          // targetUUID -> []edges
 
 	// Event subscribers
 	subscribers map[string][]chan ChangeEvent
@@ -207,9 +207,9 @@ func (g *GraphEngine) CreateNode(nodeType string, props map[string]interface{}) 
 	}
 
 	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	if len(g.nodes) >= MaxNodes {
+		g.mu.Unlock()
 		return nil, fmt.Errorf("node limit reached (%d): delete nodes before creating more", MaxNodes)
 	}
 
@@ -238,22 +238,41 @@ func (g *GraphEngine) CreateNode(nodeType string, props map[string]interface{}) 
 	g.stats.NodeCount++
 	g.stats.NodeTypes[nodeType]++
 
-	logging.Debug("Node created", map[string]interface{}{
-		"uuid": node.UUID, "type": nodeType,
-	})
-
-	// Emit event
-	g.emitEvent(ChangeEvent{
+	ev := ChangeEvent{
 		Type:       "create",
 		NodeType:   nodeType,
 		EntityID:   node.UUID,
 		Properties: props,
+	}
+	copy := nodeCopy(node)
+	g.mu.Unlock()
+
+	// Emit outside lock
+	g.emitEvent(ev)
+
+	logging.Debug("Node created", map[string]interface{}{
+		"uuid": node.UUID, "type": nodeType,
 	})
 
-	return node, nil
+	return copy, nil
 }
 
-// GetNode retrieves a node by UUID.
+// nodeCopy returns a deep copy of a Node (for race-free reads).
+func nodeCopy(n *Node) *Node {
+	if n == nil {
+		return nil
+	}
+	return &Node{
+		UUID:       n.UUID,
+		Type:       n.Type,
+		Properties: copyProps(n.Properties),
+		CreatedAt:  n.CreatedAt,
+		UpdatedAt:  n.UpdatedAt,
+		Version:    n.Version,
+	}
+}
+
+// GetNode retrieves a node by UUID. Returns a deep copy (race-safe).
 func (g *GraphEngine) GetNode(uuid string) (*Node, error) {
 	if err := validateUUID(uuid); err != nil {
 		return nil, err
@@ -265,11 +284,16 @@ func (g *GraphEngine) GetNode(uuid string) (*Node, error) {
 	if !ok {
 		return nil, fmt.Errorf("node not found: %s", uuid)
 	}
-	return node, nil
+	return nodeCopy(node), nil
 }
 
+// emitCollector collects events inside a lock so they can be emitted after release.
+type emitCollector []ChangeEvent
+
+func (e *emitCollector) add(ev ChangeEvent) { *e = append(*e, ev) }
+
 // UpdateNode updates properties on an existing node.
-// Returns the updated node. Empty props are ignored.
+// Returns a deep copy (race-safe). Empty props are ignored.
 // Optimistic locking: if props contains "expected_version", the update
 // only succeeds if the node's current version matches.
 func (g *GraphEngine) UpdateNode(uuid string, props map[string]interface{}) (*Node, error) {
@@ -279,15 +303,16 @@ func (g *GraphEngine) UpdateNode(uuid string, props map[string]interface{}) (*No
 	}
 
 	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	node, ok := g.nodes[uuid]
 	if !ok {
+		g.mu.Unlock()
 		return nil, fmt.Errorf("node not found: %s", uuid)
 	}
 
 	if len(props) == 0 {
-		return node, nil
+		g.mu.Unlock()
+		return nodeCopy(node), nil
 	}
 
 	// Optimistic locking: check expected_version if provided
@@ -302,6 +327,7 @@ func (g *GraphEngine) UpdateNode(uuid string, props map[string]interface{}) (*No
 			expected = int(v)
 		}
 		if expected > 0 && expected != node.Version {
+			g.mu.Unlock()
 			return nil, fmt.Errorf("version conflict: expected %d, current %d",
 				expected, node.Version)
 		}
@@ -325,18 +351,23 @@ func (g *GraphEngine) UpdateNode(uuid string, props map[string]interface{}) (*No
 		g.nameIndex[newName] = append(g.nameIndex[newName], node)
 	}
 
-	logging.Debug("Node updated", map[string]interface{}{
-		"uuid": uuid, "version": node.Version,
-	})
-
-	g.emitEvent(ChangeEvent{
+	ev := ChangeEvent{
 		Type:       "update",
 		NodeType:   node.Type,
 		EntityID:   node.UUID,
 		Properties: props,
+	}
+	copy := nodeCopy(node)
+	g.mu.Unlock()
+
+	// Emit outside lock to avoid deadlock
+	g.emitEvent(ev)
+
+	logging.Debug("Node updated", map[string]interface{}{
+		"uuid": uuid, "version": copy.Version,
 	})
 
-	return node, nil
+	return copy, nil
 }
 
 // DeleteNode removes a node and all its edges from the graph.
@@ -347,10 +378,10 @@ func (g *GraphEngine) DeleteNode(uuid string) error {
 	}
 
 	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	node, ok := g.nodes[uuid]
 	if !ok {
+		g.mu.Unlock()
 		return fmt.Errorf("node not found: %s", uuid)
 	}
 
@@ -377,14 +408,17 @@ func (g *GraphEngine) DeleteNode(uuid string) error {
 		delete(g.stats.NodeTypes, nodeType)
 	}
 
-	logging.Debug("Node deleted", map[string]interface{}{"uuid": uuid})
-
-	g.emitEvent(ChangeEvent{
+	ev := ChangeEvent{
 		Type:     "delete",
 		NodeType: nodeType,
 		EntityID: uuid,
-	})
+	}
+	g.mu.Unlock()
 
+	// Emit outside lock
+	g.emitEvent(ev)
+
+	logging.Debug("Node deleted", map[string]interface{}{"uuid": uuid})
 	return nil
 }
 
@@ -492,7 +526,7 @@ func (g *GraphEngine) GetEdgesByType(edgeType string) []*Edge {
 // Query Helpers
 // ============================================================
 
-// FindNodesByType returns all nodes of a given type.
+// FindNodesByType returns all nodes of a given type (deep copies, race-safe).
 func (g *GraphEngine) FindNodesByType(nodeType string) []*Node {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -500,12 +534,12 @@ func (g *GraphEngine) FindNodesByType(nodeType string) []*Node {
 	nodes := g.typeIndex[nodeType]
 	result := make([]*Node, 0, len(nodes))
 	for _, n := range nodes {
-		result = append(result, n)
+		result = append(result, nodeCopy(n))
 	}
 	return result
 }
 
-// FindNodeByName returns nodes whose "name" property matches (case-insensitive, prefix match).
+// FindNodeByName returns nodes whose "name" property matches (case-insensitive, deep copies).
 func (g *GraphEngine) FindNodeByName(name string) []*Node {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -514,7 +548,9 @@ func (g *GraphEngine) FindNodeByName(name string) []*Node {
 	var result []*Node
 	for key, nodes := range g.nameIndex {
 		if strings.Contains(strings.ToLower(key), nameLower) {
-			result = append(result, nodes...)
+			for _, n := range nodes {
+				result = append(result, nodeCopy(n))
+			}
 		}
 	}
 	return result
@@ -673,23 +709,25 @@ func (g *GraphEngine) ReleaseLock(nodeUUID, agentID string) error {
 
 // graphData is the serializable structure for saving/loading the graph.
 type graphData struct {
-	Nodes  map[string]*Node `json:"nodes"`
-	Edges  []*Edge          `json:"edges"`
-	Locks  map[string]*Lock `json:"locks"`
+	Nodes map[string]*Node `json:"nodes"`
+	Edges []*Edge          `json:"edges"`
+	Locks map[string]*Lock `json:"locks"`
 }
 
-// SaveToFile serializes the graph to a JSON file.
+// SaveToFile serializes the graph to a JSON file atomically (temp + rename).
 func (g *GraphEngine) SaveToFile(path string) error {
 	defer logging.Trace("GraphEngine.SaveToFile", map[string]interface{}{"path": path})()
 
 	g.mu.RLock()
-	defer g.mu.RUnlock()
 
 	data := graphData{
 		Nodes: g.nodes,
 		Edges: g.edges,
 		Locks: g.locks,
 	}
+	nodes := len(g.nodes)
+	edges := len(g.edges)
+	g.mu.RUnlock()
 
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -701,14 +739,20 @@ func (g *GraphEngine) SaveToFile(path string) error {
 		return fmt.Errorf("marshal graph: %w", err)
 	}
 
-	if err := os.WriteFile(path, jsonData, 0644); err != nil {
-		return fmt.Errorf("write graph file: %w", err)
+	// Write to temp file, then rename (atomic on POSIX)
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, jsonData, 0644); err != nil {
+		return fmt.Errorf("write temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("rename temp file: %w", err)
 	}
 
 	logging.Info("Graph saved to disk", map[string]interface{}{
 		"path":  path,
-		"nodes": len(g.nodes),
-		"edges": len(g.edges),
+		"nodes": nodes,
+		"edges": edges,
 	})
 
 	return nil

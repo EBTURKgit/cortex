@@ -25,8 +25,8 @@ type SandboxResult struct {
 // It constrains the working directory to the project root and enforces
 // timeouts and resource limits.
 type Sandbox struct {
-	workDir    string
-	timeout    time.Duration
+	workDir     string
+	timeout     time.Duration
 	allowedCmds []string
 }
 
@@ -177,16 +177,11 @@ func (s *Sandbox) isAllowed(command string) bool {
 
 // ValidatePathInSandbox checks that a resolved path stays within the sandbox.
 func (s *Sandbox) ValidatePathInSandbox(path string) error {
-	absPath, err := filepath.Abs(path)
+	rel, err := filepath.Rel(s.workDir, path)
 	if err != nil {
-		return err
+		return fmt.Errorf("path %s: %w", path, err)
 	}
-	absWorkDir, err := filepath.Abs(s.workDir)
-	if err != nil {
-		return err
-	}
-
-	if !strings.HasPrefix(absPath, absWorkDir) {
+	if strings.HasPrefix(rel, "..") {
 		return fmt.Errorf("path %s is outside sandbox %s", path, s.workDir)
 	}
 	return nil

@@ -208,7 +208,7 @@ func TestOptimisticLocking(t *testing.T) {
 func setupTestServer(t *testing.T) (*server.Server, *graph.GraphEngine) {
 	t.Helper()
 	engine := graph.New()
-	srv := server.New(engine, 0) // port 0 = random available port
+	srv := server.New(engine, "127.0.0.1", 0) // port 0 = random available port
 
 	// Add project and some nodes
 	engine.CreateNode(graph.NodeTypeProject, map[string]interface{}{"name": "test"})

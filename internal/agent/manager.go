@@ -37,12 +37,12 @@ Always produce a complete, detailed plan before starting execution.`
 
 // GoalPlan represents a complete plan generated from a user goal.
 type GoalPlan struct {
-	Goal        string        `json:"goal"`
-	Summary     string        `json:"summary"`
-	Modules     []ModuleDef   `json:"modules"`
-	Schema      []TableDef    `json:"schema"`
-	Endpoints   []EndpointDef `json:"endpoints"`
-	Tasks       []TaskDef     `json:"tasks"`
+	Goal      string        `json:"goal"`
+	Summary   string        `json:"summary"`
+	Modules   []ModuleDef   `json:"modules"`
+	Schema    []TableDef    `json:"schema"`
+	Endpoints []EndpointDef `json:"endpoints"`
+	Tasks     []TaskDef     `json:"tasks"`
 }
 
 // ModuleDef defines a software module/package.
@@ -54,8 +54,8 @@ type ModuleDef struct {
 
 // TableDef defines a database table.
 type TableDef struct {
-	Name    string       `json:"name"`
-	Columns []ColumnDef  `json:"columns"`
+	Name    string      `json:"name"`
+	Columns []ColumnDef `json:"columns"`
 }
 
 // ColumnDef defines a database column.
@@ -178,9 +178,9 @@ func (m *ManagerAgent) ExecutePlan(engine *graph.GraphEngine, plan *GoalPlan) er
 
 	// 1. Create Decision node with the plan summary
 	decisionNode, _ := engine.CreateNode(graph.NodeTypeDecision, map[string]interface{}{
-		"statement":   plan.Summary,
-		"rationale":   fmt.Sprintf("Generated from goal: %s", plan.Goal),
-		"plan_json":   toJSON(plan),
+		"statement": plan.Summary,
+		"rationale": fmt.Sprintf("Generated from goal: %s", plan.Goal),
+		"plan_json": toJSON(plan),
 	})
 	_ = decisionNode
 
@@ -237,10 +237,10 @@ func (m *ManagerAgent) ExecutePlan(engine *graph.GraphEngine, plan *GoalPlan) er
 	taskNodes := make(map[string]string) // title -> uuid
 	for _, task := range plan.Tasks {
 		node, err := engine.CreateNode(graph.NodeTypeTask, map[string]interface{}{
-			"title":              task.Title,
-			"description":        task.Description,
-			"status":             "pending",
-			"priority":           task.Priority,
+			"title":               task.Title,
+			"description":         task.Description,
+			"status":              "pending",
+			"priority":            task.Priority,
 			"assigned_agent_type": task.AgentType,
 		})
 		if err != nil {
@@ -357,7 +357,7 @@ func (m *ManagerAgent) handleFailedTask(engine *graph.GraphEngine, task *graph.N
 	if int(retries) >= config.MaxRetries {
 		logging.Error("Task exceeded max retries",
 			map[string]interface{}{
-				"task":   task.UUID,
+				"task":    task.UUID,
 				"retries": retries,
 			})
 		// TODO: Notify human operator
@@ -366,15 +366,15 @@ func (m *ManagerAgent) handleFailedTask(engine *graph.GraphEngine, task *graph.N
 
 	// Increment retry count
 	engine.UpdateNode(task.UUID, map[string]interface{}{
-		"status":       "pending",
-		"retry_count":  int(retries) + 1,
+		"status":             "pending",
+		"retry_count":        int(retries) + 1,
 		"locked_by_agent_id": nil,
 	})
 
 	logging.Info("Task reset for retry",
 		map[string]interface{}{
-			"task":   task.UUID,
-			"retry":  int(retries) + 1,
+			"task":  task.UUID,
+			"retry": int(retries) + 1,
 		})
 }
 

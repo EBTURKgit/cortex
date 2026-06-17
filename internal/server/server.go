@@ -4,12 +4,13 @@ package server
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	_ "embed"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/EBTURKgit/cortex/internal/graph"
 	"github.com/EBTURKgit/cortex/internal/ingestion"
@@ -29,12 +30,13 @@ type Server struct {
 	router  *chi.Mux
 	httpSrv *http.Server
 	wsUpgr  *websocket.Upgrader
+	host    string
 	port    int
 
-	// WebSocket connections for broadcasting
-	wsConns   map[*websocket.Conn]bool
-	wsMu      sync.RWMutex
-	wsSubs    map[*websocket.Conn][]string // conn -> subscribed topics
+	// WebSocket connection management
+	wsMu   sync.RWMutex
+	wsSubs map[*websocket.Conn][]string    // conn -> subscribed topics
+	wsSend map[*websocket.Conn]chan []byte // conn -> send channel
 
 	// Event bridge: graph events -> WebSocket
 	eventCh chan graph.ChangeEvent
@@ -45,16 +47,17 @@ type Server struct {
 }
 
 // New creates a new server wrapping the given graph engine.
-func New(engine *graph.GraphEngine, port int) *Server {
-	logging.Debug("Creating server", map[string]interface{}{"port": port})
+func New(engine *graph.GraphEngine, host string, port int) *Server {
+	logging.Debug("Creating server", map[string]interface{}{"host": host, "port": port})
 
 	s := &Server{
-		engine:        engine,
-		port:          port,
-		wsConns:       make(map[*websocket.Conn]bool),
-		wsSubs:        make(map[*websocket.Conn][]string),
-		eventCh:       make(chan graph.ChangeEvent, 1000),
-		stopCh:        make(chan struct{}),
+		engine:       engine,
+		host:         host,
+		port:         port,
+		wsSubs:       make(map[*websocket.Conn][]string),
+		wsSend:       make(map[*websocket.Conn]chan []byte),
+		eventCh:      make(chan graph.ChangeEvent, 1000),
+		stopCh:       make(chan struct{}),
 		ingestionSvc: ingestion.NewService(engine),
 	}
 
@@ -120,7 +123,11 @@ func (s *Server) setupRoutes() {
 func (s *Server) Start() error {
 	logging.Trace("Server.Start")()
 
-	addr := fmt.Sprintf("127.0.0.1:%d", s.port)
+	host := s.host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	addr := fmt.Sprintf("%s:%d", host, s.port)
 	s.httpSrv = &http.Server{
 		Addr:    addr,
 		Handler: s.router,
@@ -148,7 +155,12 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 	// Close all WebSocket connections
 	s.wsMu.Lock()
-	for conn := range s.wsConns {
+	for conn := range s.wsSubs {
+		if ch, ok := s.wsSend[conn]; ok {
+			close(ch)
+			delete(s.wsSend, conn)
+		}
+		delete(s.wsSubs, conn)
 		conn.Close()
 	}
 	s.wsMu.Unlock()
@@ -196,23 +208,20 @@ func (s *Server) broadcastToSubscribers(event graph.ChangeEvent) {
 	}
 
 	s.wsMu.RLock()
-	var removeQueue []*websocket.Conn
 	for conn, topics := range s.wsSubs {
 		if matchesTopic(topics, event) {
-			err := conn.WriteMessage(websocket.TextMessage, data)
-			if err != nil {
-				logging.Warn("WebSocket write error",
-					map[string]interface{}{"error": err.Error()})
-				removeQueue = append(removeQueue, conn)
+			if ch, ok := s.wsSend[conn]; ok {
+				select {
+				case ch <- data:
+				default:
+					// Channel full, drop message for slow client
+					logging.Debug("Dropping WS message for slow client",
+						map[string]interface{}{"remote": conn.RemoteAddr().String()})
+				}
 			}
 		}
 	}
 	s.wsMu.RUnlock()
-
-	// Remove failed connections outside the lock to prevent deadlock
-	for _, conn := range removeQueue {
-		s.removeConn(conn)
-	}
 }
 
 func matchesTopic(topics []string, event graph.ChangeEvent) bool {
@@ -271,7 +280,7 @@ func (s *Server) handleCreateNode(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetNode(w http.ResponseWriter, r *http.Request) {
 	defer logging.Trace("handleGetNode")()
 	uuid := chi.URLParam(r, "uuid")
-	logging.Debug("GET /nodes/"+uuid)
+	logging.Debug("GET /nodes/" + uuid)
 
 	node, err := s.engine.GetNode(uuid)
 	if err != nil {
@@ -285,7 +294,7 @@ func (s *Server) handleGetNode(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleUpdateNode(w http.ResponseWriter, r *http.Request) {
 	defer logging.Trace("handleUpdateNode")()
 	uuid := chi.URLParam(r, "uuid")
-	logging.Debug("PUT /nodes/"+uuid)
+	logging.Debug("PUT /nodes/" + uuid)
 
 	var props map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&props); err != nil {
@@ -305,7 +314,7 @@ func (s *Server) handleUpdateNode(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDeleteNode(w http.ResponseWriter, r *http.Request) {
 	defer logging.Trace("handleDeleteNode")()
 	uuid := chi.URLParam(r, "uuid")
-	logging.Debug("DELETE /nodes/"+uuid)
+	logging.Debug("DELETE /nodes/" + uuid)
 
 	if err := s.engine.DeleteNode(uuid); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
@@ -431,16 +440,16 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 // ============================================================
 
 type visNode struct {
-	ID     string `json:"id"`
-	Label  string `json:"label"`
-	Type   string `json:"type"`
-	Group  int    `json:"group"`
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Type  string `json:"type"`
+	Group int    `json:"group"`
 }
 
 type visEdge struct {
-	From   string `json:"from"`
-	To     string `json:"to"`
-	Label  string `json:"label"`
+	From  string `json:"from"`
+	To    string `json:"to"`
+	Label string `json:"label"`
 }
 
 // handleGraphData returns nodes and edges as JSON for the visualizer.
@@ -670,8 +679,8 @@ func (s *Server) handleEventsData(w http.ResponseWriter, r *http.Request) {
 	for _, d := range decisions {
 		stmt, _ := d.Properties["statement"].(string)
 		events = append(events, eventView{
-			Time: d.CreatedAt.Format(time.RFC3339),
-			Type: "decision",
+			Time:    d.CreatedAt.Format(time.RFC3339),
+			Type:    "decision",
 			Message: truncate(stmt, 150),
 		})
 	}
@@ -720,19 +729,34 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	conn.SetReadLimit(10 * 1024 * 1024) // 10MB max message
 
+	// Create per-connection send channel
+	sendCh := make(chan []byte, 64)
+
 	s.wsMu.Lock()
-	s.wsConns[conn] = true
 	s.wsSubs[conn] = []string{"all"} // subscribe to all by default
-	count := len(s.wsConns)
+	s.wsSend[conn] = sendCh
+	clientCount := len(s.wsSubs)
 	s.wsMu.Unlock()
+
+	// Writer goroutine: reads from send channel, writes to WebSocket
+	go func() {
+		defer s.removeConn(conn)
+		for msg := range sendCh {
+			if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				logging.Warn("WebSocket write error",
+					map[string]interface{}{"error": err.Error()})
+				return
+			}
+		}
+	}()
 
 	logging.Info("WebSocket client connected", map[string]interface{}{
 		"remote":        conn.RemoteAddr().String(),
-		"total_clients": count,
+		"total_clients": clientCount,
 	})
 
 	// Read messages (for subscription management)
-	go s.handleWSMessages(conn)
+	s.handleWSMessages(conn)
 }
 
 func (s *Server) handleWSMessages(conn *websocket.Conn) {
@@ -776,8 +800,11 @@ func (s *Server) removeConn(conn *websocket.Conn) {
 	s.wsMu.Lock()
 	defer s.wsMu.Unlock()
 
-	delete(s.wsConns, conn)
 	delete(s.wsSubs, conn)
+	if ch, ok := s.wsSend[conn]; ok {
+		close(ch)
+		delete(s.wsSend, conn)
+	}
 	conn.Close()
 }
 
@@ -807,10 +834,12 @@ func bodySizeLimitMiddleware(next http.Handler) http.Handler {
 }
 
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	if utf8.RuneCountInString(s) <= n {
 		return s
 	}
-	return s[:n] + "..."
+	// Slice by runes to avoid splitting multi-byte characters
+	runes := []rune(s)
+	return string(runes[:n]) + "..."
 }
 
 func corsMiddleware(next http.Handler) http.Handler {

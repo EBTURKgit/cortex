@@ -21,7 +21,7 @@ import (
 
 // Message represents a single message in a conversation.
 type Message struct {
-	Role    string `json:"role"`    // "system", "user", "assistant"
+	Role    string `json:"role"` // "system", "user", "assistant"
 	Content string `json:"content"`
 }
 
@@ -84,9 +84,9 @@ type ollamaResponse struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
 	} `json:"message"`
-	DoneReason string `json:"done_reason"`
-	EvalCount  int    `json:"eval_count"`
-	PromptEvalCount int `json:"prompt_eval_count"`
+	DoneReason      string `json:"done_reason"`
+	EvalCount       int    `json:"eval_count"`
+	PromptEvalCount int    `json:"prompt_eval_count"`
 }
 
 // NewOllamaClient creates a new Ollama LLM client.
@@ -152,9 +152,9 @@ func (c *OllamaClient) Chat(ctx context.Context, messages []Message, opts *ChatO
 
 	logging.Debug("Ollama response received",
 		map[string]interface{}{
-			"eval_count": ollamaResp.EvalCount,
+			"eval_count":        ollamaResp.EvalCount,
 			"prompt_eval_count": ollamaResp.PromptEvalCount,
-			"done_reason": ollamaResp.DoneReason,
+			"done_reason":       ollamaResp.DoneReason,
 		})
 
 	return &ChatResponse{
@@ -300,9 +300,9 @@ func (c *OpenAIClient) Chat(ctx context.Context, messages []Message, opts *ChatO
 
 	logging.Debug("OpenAI response received",
 		map[string]interface{}{
-			"model":    apiResp.Model,
-			"tokens":   apiResp.Usage.TotalTokens,
-			"finish":   apiResp.Choices[0].FinishReason,
+			"model":  apiResp.Model,
+			"tokens": apiResp.Usage.TotalTokens,
+			"finish": apiResp.Choices[0].FinishReason,
 		})
 
 	return &ChatResponse{

@@ -17,9 +17,9 @@ import (
 
 // DockerSandbox provides container-level isolation for agent command execution.
 type DockerSandbox struct {
-	workDir    string
-	image      string
-	timeout    time.Duration
+	workDir     string
+	image       string
+	timeout     time.Duration
 	containerID string
 }
 
@@ -86,7 +86,7 @@ func (s *DockerSandbox) Run(command string, args ...string) (*SandboxResult, err
 	dockerArgs := []string{
 		"run", "--rm",
 		"--network", "none", // no network access
-		"--read-only",       // read-only filesystem
+		"--read-only", // read-only filesystem
 		"--security-opt", "no-new-privileges:true",
 		"--cap-drop", "ALL",
 		"-v", s.workDir + ":/project:ro", // project mounted read-only
@@ -152,7 +152,8 @@ func (s *DockerSandbox) RunScript(script string, interpreter string) (*SandboxRe
 // ReadFile reads a file from the project directory.
 func (s *DockerSandbox) ReadFile(path string) (string, error) {
 	fullPath := filepath.Join(s.workDir, path)
-	if !strings.HasPrefix(filepath.Clean(fullPath), filepath.Clean(s.workDir)) {
+	rel, err := filepath.Rel(s.workDir, fullPath)
+	if err != nil || strings.HasPrefix(rel, "..") {
 		return "", fmt.Errorf("path outside sandbox: %s", path)
 	}
 	data, err := os.ReadFile(fullPath)
@@ -165,7 +166,8 @@ func (s *DockerSandbox) ReadFile(path string) (string, error) {
 // WriteFile writes a file to the project directory.
 func (s *DockerSandbox) WriteFile(path, content string) error {
 	fullPath := filepath.Join(s.workDir, path)
-	if !strings.HasPrefix(filepath.Clean(fullPath), filepath.Clean(s.workDir)) {
+	rel, err := filepath.Rel(s.workDir, fullPath)
+	if err != nil || strings.HasPrefix(rel, "..") {
 		return fmt.Errorf("path outside sandbox: %s", path)
 	}
 	dir := filepath.Dir(fullPath)

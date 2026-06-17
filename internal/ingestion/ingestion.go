@@ -14,8 +14,6 @@ import (
 
 	"github.com/EBTURKgit/cortex/internal/graph"
 	"github.com/EBTURKgit/cortex/internal/logging"
-
-	"github.com/google/uuid"
 )
 
 // LogLevel represents the severity of a log entry.
@@ -30,13 +28,13 @@ const (
 
 // LogEntry represents a single log line from the application.
 type LogEntry struct {
-	Timestamp   time.Time              `json:"timestamp"`
-	Level       LogLevel               `json:"level"`
-	Message     string                 `json:"message"`
-	FunctionID  string                 `json:"cortex_function_id,omitempty"`
-	File        string                 `json:"file,omitempty"`
-	Line        int                    `json:"line,omitempty"`
-	Raw         map[string]interface{} `json:"raw,omitempty"`
+	Timestamp  time.Time              `json:"timestamp"`
+	Level      LogLevel               `json:"level"`
+	Message    string                 `json:"message"`
+	FunctionID string                 `json:"cortex_function_id,omitempty"`
+	File       string                 `json:"file,omitempty"`
+	Line       int                    `json:"line,omitempty"`
+	Raw        map[string]interface{} `json:"raw,omitempty"`
 }
 
 // TraceSpan represents a single span in a distributed trace.
@@ -53,8 +51,8 @@ type TraceSpan struct {
 
 // LogIngestionError is emitted when linking a log to a function fails.
 type LogIngestionError struct {
-	Log     LogEntry `json:"log"`
-	Reason  string   `json:"reason"`
+	Log    LogEntry `json:"log"`
+	Reason string   `json:"reason"`
 }
 
 // Service ingests logs and traces, linking them to graph nodes.
@@ -169,13 +167,13 @@ func (s *Service) IngestTrace(span TraceSpan) error {
 	s.mu.Unlock()
 
 	node, err := s.engine.CreateNode(graph.NodeTypeTraceSpan, map[string]interface{}{
-		"trace_id":        span.TraceID,
-		"span_id":         span.SpanID,
-		"parent_span_id":  span.ParentSpanID,
-		"operation_name":  span.OperationName,
-		"start_time":      span.StartTime,
-		"duration_ms":     span.DurationMs,
-		"status":          span.Status,
+		"trace_id":       span.TraceID,
+		"span_id":        span.SpanID,
+		"parent_span_id": span.ParentSpanID,
+		"operation_name": span.OperationName,
+		"start_time":     span.StartTime,
+		"duration_ms":    span.DurationMs,
+		"status":         span.Status,
 	})
 	if err != nil {
 		return fmt.Errorf("create trace span node: %w", err)
@@ -249,9 +247,9 @@ func (s *Service) HandleLogIngestion(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "accepted",
+		"status":   "accepted",
 		"ingested": success,
-		"total":   len(batch),
+		"total":    len(batch),
 	})
 }
 
@@ -289,6 +287,3 @@ func (s *Service) Stats() map[string]int {
 		"errors":          s.stats.Errors,
 	}
 }
-
-// Must be used by uuid package
-var _ = uuid.New

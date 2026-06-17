@@ -42,11 +42,11 @@ func (l Level) String() string {
 
 // Logger is a structured logger with leveled output and field support.
 type Logger struct {
-	mu       sync.Mutex
-	level    Level
-	output   io.Writer
-	fields   map[string]interface{}
-	appName  string
+	mu      sync.Mutex
+	level   Level
+	output  io.Writer
+	fields  map[string]interface{}
+	appName string
 }
 
 // NewLogger creates a new logger with the given minimum level and output writer.

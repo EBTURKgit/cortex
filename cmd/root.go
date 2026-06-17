@@ -160,7 +160,7 @@ func init() {
 var initCmd = &cobra.Command{
 	Use:   "init [project-name]",
 	Short: "Initialize a new Cortex project",
-	Long:  `Creates a cortex.yaml configuration file in the current directory,
+	Long: `Creates a cortex.yaml configuration file in the current directory,
 setting up the project for indexing and graph storage.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.Info("Initializing cortex project")
@@ -224,7 +224,7 @@ var serveCmd = &cobra.Command{
 		}
 
 		// Create and start server
-		srv := server.New(engine, cfg.Server.Port)
+		srv := server.New(engine, cfg.Server.Host, cfg.Server.Port)
 
 		// Handle graceful shutdown + autosave
 		sigCh := make(chan os.Signal, 1)
@@ -296,8 +296,7 @@ var devUpCmd = &cobra.Command{
 			port = cfg.Server.Port
 		}
 
-		args = append([]string{"serve"}, os.Args[3:]...)
-		proc, err := os.StartProcess(os.Args[0], append([]string{"cortex", "serve"}, args...), &os.ProcAttr{
+		proc, err := os.StartProcess(os.Args[0], []string{"cortex", "serve", "--port", fmt.Sprintf("%d", port)}, &os.ProcAttr{
 			Files: []*os.File{nil, nil, nil},
 		})
 		if err != nil {
@@ -528,7 +527,7 @@ Usage:
 		// Create project node
 		projectName := filepath.Base(absPath)
 		engine.CreateNode(graph.NodeTypeProject, map[string]interface{}{
-			"name":     projectName,
+			"name":      projectName,
 			"root_path": absPath,
 		})
 
@@ -811,9 +810,15 @@ Examples:
 			return fmt.Errorf("create LLM client: %w", err)
 		}
 
-		// Create manager agent
+		// Create manager agent (use defaults if no config)
+		serverHost := "127.0.0.1"
+		serverPort := 8741
+		if cfg != nil {
+			serverHost = cfg.Server.Host
+			serverPort = cfg.Server.Port
+		}
 		manager := agent.NewManager(agent.AgentConfig{
-			ServerURL: fmt.Sprintf("http://%s:%d", cfg.Server.Host, cfg.Server.Port),
+			ServerURL: fmt.Sprintf("http://%s:%d", serverHost, serverPort),
 			LLM:       llmClient,
 			Model:     llmCfg.Model,
 		})
@@ -939,19 +944,17 @@ Examples:
 		var err error
 
 		// Check for specific LLM config for this agent type
-		llmConfig, ok := cfg.LLM[string(agentType)]
-		if !ok {
-			// Fall back to default LLM config
-			defaultCfg, ok := cfg.LLM["default"]
-			if !ok {
-				// Use hardcoded default
-				defaultCfg = config.LLMConfig{
-					Provider: "ollama",
-					Model:    "codellama:7b",
-					Endpoint: "http://localhost:11434",
-				}
+		llmConfig := config.LLMConfig{
+			Provider: "ollama",
+			Model:    "codellama:7b",
+			Endpoint: "http://localhost:11434",
+		}
+		if cfg != nil {
+			if c, ok := cfg.LLM[string(agentType)]; ok {
+				llmConfig = c
+			} else if c, ok := cfg.LLM["default"]; ok {
+				llmConfig = c
 			}
-			llmConfig = defaultCfg
 		}
 
 		llmClient, err = agent.NewLLMClient(llmConfig)
@@ -1254,7 +1257,7 @@ var taskRejectCmd = &cobra.Command{
 		for _, t := range tasks {
 			if strings.HasPrefix(t.UUID, args[0]) {
 				engine.UpdateNode(t.UUID, map[string]interface{}{
-					"status": "rejected",
+					"status":  "rejected",
 					"comment": reason,
 				})
 				fmt.Printf("❌ Task %s rejected", t.UUID[:8])
@@ -1541,12 +1544,4 @@ var versionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Cortex v0.1.0")
 	},
-}
-
-// min returns the smaller of two ints.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

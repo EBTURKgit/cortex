@@ -47,17 +47,17 @@ type ProjectConfig struct {
 
 // Config is the full cortex configuration.
 type Config struct {
-	Project ProjectConfig           `yaml:"project"`
-	Server  ServerConfig            `yaml:"server"`
-	Agents  map[string]AgentConfig  `yaml:"agents"`
-	LLM     map[string]LLMConfig    `yaml:"llm"`
+	Project ProjectConfig          `yaml:"project"`
+	Server  ServerConfig           `yaml:"server"`
+	Agents  map[string]AgentConfig `yaml:"agents"`
+	LLM     map[string]LLMConfig   `yaml:"llm"`
 }
 
 // UserConfig stores user-level settings (API keys, preferences).
 type UserConfig struct {
-	DefaultLLM string                `yaml:"default_llm"`
-	LLM        map[string]LLMConfig  `yaml:"llm"`
-	Editor     string                `yaml:"editor"`
+	DefaultLLM string               `yaml:"default_llm"`
+	LLM        map[string]LLMConfig `yaml:"llm"`
+	Editor     string               `yaml:"editor"`
 }
 
 // DefaultConfig returns the default project configuration.
@@ -77,11 +77,11 @@ func DefaultConfig() *Config {
 			DBPath:  ".cortex/data",
 		},
 		Agents: map[string]AgentConfig{
-			"manager":  {Enabled: false, Model: "default"},
-			"backend":  {Enabled: false, Model: "default"},
-			"frontend": {Enabled: false, Model: "default"},
-			"database": {Enabled: false, Model: "default"},
-			"qa":       {Enabled: false, Model: "default"},
+			"manager":   {Enabled: false, Model: "default"},
+			"backend":   {Enabled: false, Model: "default"},
+			"frontend":  {Enabled: false, Model: "default"},
+			"database":  {Enabled: false, Model: "default"},
+			"qa":        {Enabled: false, Model: "default"},
 			"architect": {Enabled: false, Model: "default"},
 		},
 		LLM: map[string]LLMConfig{

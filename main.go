@@ -5,25 +5,28 @@
 // REST API, and WebSocket.
 //
 // Architecture:
-//   main.go          — Entrypoint, wires everything together
-//   cmd/             — CLI commands (init, serve, dev, import, query, mcp)
-//   internal/graph/  — In-memory labeled property graph engine
-//   internal/server/ — HTTP + WebSocket server with REST API
-//   internal/mcp/    — MCP protocol server for AI tool integration
-//   internal/indexer/— Source code scanner and entity extractor
-//   internal/config/ — Configuration management (cortex.yaml)
-//   internal/logging/— Structured logging with debug tracing
-//   internal/progress/— Build checklist and verification tracker
+//
+//	main.go          — Entrypoint, wires everything together
+//	cmd/             — CLI commands (init, serve, dev, import, query, mcp)
+//	internal/graph/  — In-memory labeled property graph engine
+//	internal/server/ — HTTP + WebSocket server with REST API
+//	internal/mcp/    — MCP protocol server for AI tool integration
+//	internal/indexer/— Source code scanner and entity extractor
+//	internal/config/ — Configuration management (cortex.yaml)
+//	internal/logging/— Structured logging with debug tracing
+//	internal/progress/— Build checklist and verification tracker
 //
 // Build:
-//   go build -o bin/cortex .
+//
+//	go build -o bin/cortex .
 //
 // Usage:
-//   cortex init              Create a new project
-//   cortex import ./project  Index an existing codebase
-//   cortex serve             Start the graph server
-//   cortex mcp               Run MCP server for AI tools
-//   cortex query "..."       Query the graph
+//
+//	cortex init              Create a new project
+//	cortex import ./project  Index an existing codebase
+//	cortex serve             Start the graph server
+//	cortex mcp               Run MCP server for AI tools
+//	cortex query "..."       Query the graph
 package main
 
 import (
@@ -39,7 +42,7 @@ import (
 
 func main() {
 	// Initialize structured logging
-	logging.SetLevel(logging.DEBUG)
+	logging.SetLevel(logging.INFO)
 	logging.Info("Cortex starting", map[string]interface{}{
 		"version": "0.1.0",
 		"pid":     os.Getpid(),
@@ -63,10 +66,10 @@ func main() {
 	// Log current build progress at startup
 	summary := cl.Summary()
 	logging.Debug("Build progress", map[string]interface{}{
-		"total":           summary["total"],
-		"completed":       summary["completed"],
-		"verified":        summary["verified"],
-		"next_pending":    cl.NextPending(),
+		"total":        summary["total"],
+		"completed":    summary["completed"],
+		"verified":     summary["verified"],
+		"next_pending": cl.NextPending(),
 	})
 
 	// Execute the CLI command

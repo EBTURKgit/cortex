@@ -54,34 +54,34 @@ cortex mcp                # MCP server for opencode/Cursor/Claude
 
 ## Features
 
-### 📊 Code Indexing
+###  Code Indexing
 - Scans 8 languages (Go, Python, PHP, JavaScript/TypeScript, Rust, Java, Ruby, C/C++)
 - Extracts functions, classes, methods, interfaces, modules
 - Creates CALLS, CONTAINS, IMPORTS edges between code entities
 - Respects `.gitignore` and `.cortexignore`
 - File watcher for auto-reindexing on changes
 
-### 🔍 Smart Querying
+###  Smart Querying
 - Search by symbol name, type, or file path
 - MCP tools for AI assistants: `search_code`, `context_for_file`, `context_for_symbol`
 - REST API for custom integrations
 - Natural language query via `cortex query`
 
-### 🖥️ Web Dashboard
+###  Web Dashboard
 - Interactive force-directed graph visualization
 - Click any node to see properties + connected edges
 - Kanban task board for project planning
 - Real-time activity feed
 - Stats overview
 
-### 🤖 AI Agent Framework
+###  AI Agent Framework
 - Built-in LLM clients for Ollama, OpenAI, Anthropic
 - Specialist agents: architect, backend, frontend, database, QA, DevOps, security, docs
 - Docker sandbox for secure agent execution
 - Automated Git workflow (branch, commit, PR)
 - `cortex goal` — AI plans and tracks your entire project
 
-### 📝 Runtime Ingestion
+###  Runtime Ingestion
 - Log and trace ingestion endpoints
 - Automatic error-to-function linking
 - `get_recent_errors` MCP tool for debugging

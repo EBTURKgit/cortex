@@ -44,7 +44,7 @@ Connect Cortex's graph-based project memory to opencode so your AI agents have p
 ### Step 1: Build Cortex
 
 ```bash
-git clone https://github.com/your-org/cortex.git
+git clone https://github.com/EBTURKgit/cortex.git
 cd cortex
 make build
 ```

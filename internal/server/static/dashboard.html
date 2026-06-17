@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cortex Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f23; color: #ccc; min-height: 100vh; }
+  nav { background: #1a1a3e; border-bottom: 1px solid #2a2a5e; display: flex; align-items: center; padding: 0 20px; height: 48px; gap: 24px; }
+  nav h1 { color: #e94560; font-size: 18px; font-weight: 700; }
+  nav a { color: #888; text-decoration: none; font-size: 14px; padding: 14px 0; border-bottom: 2px solid transparent; cursor: pointer; }
+  nav a:hover { color: #ddd; }
+  nav a.active { color: #e94560; border-bottom-color: #e94560; }
+  .content { padding: 20px; max-width: 1400px; margin: 0 auto; }
+  .tab { display: none; }
+  .tab.active { display: block; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: #1a1a3e; border: 1px solid #2a2a5e; border-radius: 8px; padding: 16px; }
+  .stat-card h3 { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+  .stat-card .value { font-size: 28px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .stat-card .value.green { color: #2ecc71; }
+  .stat-card .value.red { color: #e74c3c; }
+  .stat-card .value.blue { color: #3498db; }
+  .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .column { background: #1a1a3e; border: 1px solid #2a2a5e; border-radius: 8px; padding: 12px; min-height: 200px; }
+  .column h3 { font-size: 12px; color: #888; text-transform: uppercase; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #2a2a5e; }
+  .card { background: #252550; border-radius: 6px; padding: 10px; margin-bottom: 8px; cursor: pointer; font-size: 13px; }
+  .card:hover { background: #2d2d60; }
+  .card .title { color: #fff; margin-bottom: 4px; }
+  .card .meta { color: #666; font-size: 11px; }
+  .card.priority-high { border-left: 3px solid #e74c3c; }
+  .card.priority-med { border-left: 3px solid #f39c12; }
+  .card.priority-low { border-left: 3px solid #3498db; }
+  .events { display: flex; flex-direction: column; gap: 6px; }
+  .event { display: flex; gap: 12px; align-items: flex-start; padding: 8px 12px; background: #1a1a3e; border-radius: 6px; font-size: 13px; }
+  .event .time { color: #666; font-size: 11px; white-space: nowrap; min-width: 140px; }
+  .event .type { color: #888; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; min-width: 80px; }
+  .event .msg { color: #ccc; }
+  .graph-layout { display: flex; gap: 16px; height: calc(100vh - 100px); }
+  .graph-container { flex: 1; position: relative; background: #0a0a1e; border-radius: 8px; overflow: hidden; border: 1px solid #2a2a5e; }
+  #tooltip { position: absolute; background: #1a1a3e; border: 1px solid #e94560; border-radius: 6px; padding: 8px 12px; font-size: 12px; pointer-events: none; display: none; z-index: 100; }
+  .node-detail { width: 320px; background: #1a1a3e; border: 1px solid #2a2a5e; border-radius: 8px; padding: 16px; overflow-y: auto; display: none; font-size: 13px; }
+  .node-detail h3 { color: #e94560; margin-bottom: 8px; font-size: 15px; }
+  .node-detail .prop { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #2a2a5e; }
+  .node-detail .prop .key { color: #888; }
+  .node-detail .prop .val { color: #ddd; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+  .node-detail .edge-list { margin-top: 8px; }
+  .node-detail .edge-item { padding: 4px 8px; background: #252550; border-radius: 4px; margin: 4px 0; font-size: 11px; }
+  .node-detail .close { float: right; cursor: pointer; color: #e94560; font-size: 18px; }
+  .empty { color: #555; text-align: center; padding: 40px; font-style: italic; }
+  .log-list { display: flex; flex-direction: column; gap: 4px; }
+  .log-entry { padding: 6px 12px; background: #1a1a3e; border-radius: 4px; font-size: 12px; display: flex; gap: 12px; }
+  .log-entry .lt { color: #666; min-width: 140px; }
+  .log-entry .ll { color: #888; min-width: 50px; text-transform: uppercase; }
+  .log-entry .lm { color: #ccc; }
+</style>
+</head>
+<body>
+<nav>
+  <h1>&#x1F9E0; Cortex</h1>
+  <a class="active" data-tab="dashboard">Dashboard</a>
+  <a data-tab="tasks">Tasks</a>
+  <a data-tab="graph">Graph</a>
+  <a data-tab="activity">Activity</a>
+</nav>
+<div class="content">
+  <div id="tab-dashboard" class="tab active">
+    <div class="stats-grid" id="stats-grid"></div>
+    <div id="recent-activity"><h3 style="color:#888;margin-bottom:8px">Recent Activity</h3><div class="events" id="event-list"></div></div>
+  </div>
+  <div id="tab-tasks" class="tab"><div class="kanban" id="kanban"></div></div>
+  <div id="tab-graph" class="tab">
+    <div class="graph-layout">
+      <div class="graph-container">
+        <svg id="graph-svg" width="100%" height="100%"></svg>
+        <div id="tooltip"></div>
+      </div>
+      <div class="node-detail" id="node-detail">
+        <span class="close" onclick="document.getElementById('node-detail').style.display='none'">&times;</span>
+        <h3 id="detail-title">Node</h3>
+        <div id="detail-props"></div>
+        <div class="edge-list" id="detail-edges"><strong style="color:#888">Connected Edges</strong></div>
+      </div>
+    </div>
+  </div>
+  <div id="tab-activity" class="tab"><div class="log-list" id="log-list"></div></div>
+</div>
+<script>
+async function loadJSON(url) { const r = await fetch(url); return r.json(); }
+
+// Tabs
+const tabs = document.querySelectorAll('nav a');
+tabs.forEach(t => t.addEventListener('click', e => {
+  e.preventDefault();
+  tabs.forEach(t2 => t2.classList.remove('active'));
+  t.classList.add('active');
+  document.querySelectorAll('.tab').forEach(t2 => t2.classList.remove('active'));
+  document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+  if (t.dataset.tab === 'graph') setTimeout(renderGraph, 100);
+  if (t.dataset.tab === 'activity') loadAllLogs();
+}));
+
+// Stats
+async function loadStats() {
+  try {
+    const stats = await loadJSON('/stats');
+    const types = Object.entries(stats.node_types || {}).map(([k,v]) => k+': '+v).join(', ');
+    document.getElementById('stats-grid').innerHTML =
+      '<div class="stat-card"><h3>Nodes</h3><div class="value blue">' + stats.node_count + '</div></div>' +
+      '<div class="stat-card"><h3>Edges</h3><div class="value">' + stats.edge_count + '</div></div>' +
+      '<div class="stat-card"><h3>Node Types</h3><div class="value green">' + Object.keys(stats.node_types || {}).length + '<span style="font-size:12px;color:#666;display:block">' + types + '</span></div></div>' +
+      '<div class="stat-card"><h3>Edge Types</h3><div class="value">' + Object.keys(stats.edge_types || {}).length + '</div></div>';
+  } catch(e) { document.getElementById('stats-grid').innerHTML = '<div class="empty">Server not running</div>'; }
+}
+
+// Tasks
+async function loadTasks() {
+  try {
+    const tasks = await loadJSON('/tasks-data');
+    const cols = {pending:[], in_progress:[], completed:[], failed:[]};
+    tasks.forEach(t => { if (cols[t.status]) cols[t.status].push(t); });
+    const kanban = document.getElementById('kanban');
+    kanban.innerHTML = '';
+    Object.entries(cols).forEach(([status, items]) => {
+      const col = document.createElement('div'); col.className = 'column';
+      col.innerHTML = '<h3>' + status.replace('_', ' ') + ' (' + items.length + ')</h3>';
+      items.forEach(t => {
+        const pclass = t.priority <= 1 ? 'high' : t.priority <= 3 ? 'med' : 'low';
+        col.innerHTML += '<div class="card priority-' + pclass + '"><div class="title">' + (t.title || t.uuid.slice(0,8)) + '</div><div class="meta">' + t.agent_type + ' &middot; ' + t.uuid.slice(0,8) + '</div></div>';
+      });
+      if (!items.length) col.innerHTML += '<div class="empty">No tasks yet. Run "cortex goal" to create a plan.</div>';
+      kanban.appendChild(col);
+    });
+  } catch(e) { document.getElementById('kanban').innerHTML = '<div class="empty">Server not running</div>'; }
+}
+
+// Events feed
+async function loadEvents() {
+  try {
+    const events = await loadJSON('/events-data');
+    const list = document.getElementById('event-list');
+    list.innerHTML = events.map(e =>
+      '<div class="event"><span class="time">' + new Date(e.time).toLocaleString() +
+      '</span><span class="type">' + e.type + '</span><span class="msg">' + e.message + '</span></div>'
+    ).join('');
+    if (!events.length) list.innerHTML = '<div class="empty">No activity yet. Import a project to see events.</div>';
+  } catch(e) { document.getElementById('event-list').innerHTML = '<div class="empty">No activity yet</div>'; }
+}
+
+// Activity log (from graph nodes)
+async function loadAllLogs() {
+  try {
+    const all = await loadJSON('/nodes?type=File');
+    const decisions = await loadJSON('/nodes?type=Decision');
+    const tasks = await loadJSON('/tasks-data');
+    const entries = [];
+    all.forEach(f => entries.push({ time: f.created_at || f.updated_at, type: 'import', msg: 'Imported: ' + (f.properties?.relative_path || f.properties?.name || 'file') }));
+    decisions.forEach(d => entries.push({ time: d.created_at, type: 'decision', msg: (d.properties?.statement || '').slice(0, 100) }));
+    tasks.filter(t => t.status === 'completed' || t.status === 'failed').forEach(t => entries.push({ time: t.updated_at, type: 'task_' + t.status, msg: t.title }));
+    entries.sort((a,b) => (b.time||'').localeCompare(a.time||''));
+    const list = document.getElementById('log-list');
+    list.innerHTML = entries.map(e =>
+      '<div class="log-entry"><span class="lt">' + (e.time ? new Date(e.time).toLocaleString() : '') +
+      '</span><span class="ll">' + e.type + '</span><span class="lm">' + e.msg + '</span></div>'
+    ).join('');
+    if (!entries.length) list.innerHTML = '<div class="empty">No activity yet</div>';
+  } catch(e) { document.getElementById('log-list').innerHTML = '<div class="empty">No activity yet</div>'; }
+}
+
+// Graph
+let graphData = null;
+function renderGraph() {
+  const svg = document.getElementById('graph-svg');
+  const w = svg.parentElement.clientWidth, h = svg.parentElement.clientHeight;
+  svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+  svg.innerHTML = '';
+  const tooltip = document.getElementById('tooltip');
+
+  if (!graphData) {
+    fetch('/graph-data').then(r => r.json()).then(data => {
+      graphData = data;
+      drawGraph(data, svg, w, h, tooltip);
+    }).catch(() => {});
+    return;
+  }
+  drawGraph(graphData, svg, w, h, tooltip);
+}
+
+function showNodeDetail(nodeId, edges, allNodes) {
+  const panel = document.getElementById('node-detail');
+  const node = allNodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  document.getElementById('detail-title').textContent = node.label + ' (' + node.type + ')';
+
+  let propsHtml = '<div class="prop"><span class="key">UUID</span><span class="val">' + node.id.slice(0,12) + '...</span></div>' +
+    '<div class="prop"><span class="key">Type</span><span class="val">' + node.type + '</span></div>';
+  // Fetch node details from API
+  fetch('/nodes/' + node.id).then(r => r.json()).then(full => {
+    Object.entries(full.properties || {}).forEach(([k,v]) => {
+      propsHtml += '<div class="prop"><span class="key">' + k + '</span><span class="val">' + String(v).slice(0,40) + '</span></div>';
+    });
+    document.getElementById('detail-props').innerHTML = propsHtml;
+  }).catch(() => { document.getElementById('detail-props').innerHTML = propsHtml; });
+
+  // Connected edges
+  const connEdges = edges.filter(e => e.from === nodeId || e.to === nodeId);
+  const edgeHtml = connEdges.map(e => {
+    const other = allNodes.find(n => n.id === (e.from === nodeId ? e.to : e.from));
+    const dir = e.from === nodeId ? '→' : '←';
+    return '<div class="edge-item">' + dir + ' ' + (other ? other.label : '?') + ' <span style="color:#666">[' + e.label + ']</span></div>';
+  }).join('');
+  document.getElementById('detail-edges').innerHTML = '<strong style="color:#888">Connected Edges (' + connEdges.length + ')</strong>' + edgeHtml;
+
+  panel.style.display = 'block';
+}
+
+function drawGraph(data, svg, w, h, tooltip) {
+  if (!data.nodes || !data.nodes.length) { return; }
+  const color = d3.scaleOrdinal(d3.schemeSet2);
+  const types = [...new Set(data.nodes.map(n => n.type))];
+  const typeColors = {}; types.forEach((t,i) => typeColors[t]=i);
+
+  const sim = d3.forceSimulation(data.nodes)
+    .force('link', d3.forceLink(data.edges).id(d=>d.id).distance(80))
+    .force('charge', d3.forceManyBody().strength(-200))
+    .force('center', d3.forceCenter(w/2, h/2));
+
+  const g = d3.select(svg).append('g');
+  const zoom = d3.zoom().scaleExtent([0.1,8]).on('zoom', e => g.attr('transform', e.transform));
+  d3.select(svg).call(zoom);
+
+  g.selectAll('line').data(data.edges).join('line')
+    .attr('stroke','#444').attr('stroke-width',1).attr('stroke-opacity',0.3);
+
+  const nodes = g.selectAll('circle').data(data.nodes).join('circle')
+    .attr('r', d => d.type==='Project'?12 : d.type==='File'?8 : 5)
+    .attr('fill', d => color(typeColors[d.type]))
+    .attr('stroke','#fff').attr('stroke-width',0.5)
+    .style('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start',(e,d)=>{if(!e.active)sim.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
+      .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;})
+      .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}));
+
+  g.selectAll('text').data(data.nodes).join('text')
+    .text(d => d.label.length>18 ? d.label.slice(0,15)+'...' : d.label)
+    .attr('font-size','8px').attr('dx',9).attr('dy',3).attr('fill','#999')
+    .style('pointer-events','none');
+
+  nodes.on('mouseenter',(e,d)=>{
+    tooltip.style.display='block';
+    tooltip.innerHTML='<b>'+d.label+'</b><br>Type: '+d.type+'<br>Edges: '+data.edges.filter(ed=>ed.from===d.id||ed.to===d.id).length;
+  }).on('mousemove',e=>{
+    tooltip.style.left=(e.pageX+12)+'px';tooltip.style.top=(e.pageY-10)+'px';
+  }).on('mouseleave',()=>{tooltip.style.display='none';})
+  .on('click',(e,d)=>{
+    e.stopPropagation();
+    showNodeDetail(d.id, data.edges, data.nodes);
+  });
+
+  // Click on background to close detail
+  d3.select(svg).on('click', () => {
+    document.getElementById('node-detail').style.display = 'none';
+  });
+
+  sim.on('tick',()=>{
+    g.selectAll('line').attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    g.selectAll('circle').attr('cx',d=>d.x).attr('cy',d=>d.y);
+    g.selectAll('text').attr('x',d=>d.x).attr('y',d=>d.y);
+  });
+}
+
+loadStats(); loadTasks(); loadEvents(); loadAllLogs();
+setInterval(() => {
+  const active = document.querySelector('nav a.active');
+  if (active && active.dataset.tab === 'dashboard') { loadStats(); loadEvents(); }
+}, 5000);
+</script>
+<script src="https://d3js.org/d3.v7.min.js" integrity="sha512-qV6kE5WU4uwZLEtoYhFv7rD+zRo0kMGNBp3cB2FN8K5z3lz7YyLQMBXf2IeCq2DB1I4Q6MFg77+l74BbtIDqLg==" crossorigin="anonymous"></script>
+</body>
+</html>

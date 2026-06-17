@@ -1,0 +1,51 @@
+project:
+    name: test
+    root_path: .
+    language: auto
+    ignore:
+        - .git
+        - node_modules
+        - vendor
+        - .cortex
+server:
+    host: 127.0.0.1
+    port: 8741
+    storage: memory
+    db_path: .cortex/data
+agents:
+    architect:
+        enabled: false
+        model: default
+        prompt: ""
+        tools: []
+    backend:
+        enabled: false
+        model: default
+        prompt: ""
+        tools: []
+    database:
+        enabled: false
+        model: default
+        prompt: ""
+        tools: []
+    frontend:
+        enabled: false
+        model: default
+        prompt: ""
+        tools: []
+    manager:
+        enabled: false
+        model: default
+        prompt: ""
+        tools: []
+    qa:
+        enabled: false
+        model: default
+        prompt: ""
+        tools: []
+llm:
+    default:
+        provider: ollama
+        model: codellama:7b
+        api_key: ""
+        endpoint: http://localhost:11434

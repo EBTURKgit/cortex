@@ -1,0 +1,41 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# Environment files
+.env
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Cortex runtime data
+.cortex/graph*.json
+.cortex/progress.json
+.cortex/cortex.pid
+.cortex/data/
+.cortex/tmp/
+
+# Dependency directories
+vendor/
+node_modules/

@@ -1,0 +1,53 @@
+# Cortex development environment
+# Start with: docker compose up -d
+# Or use: cortex dev up
+
+version: "3.8"
+
+services:
+  # Cortex Graph Server (runs natively outside Docker for now)
+  # To run the server: cortex serve
+  # 
+  # In production, the graph server would run in a container:
+  # cortex:
+  #   build: .
+  #   ports:
+  #     - "8741:8741"
+  #   volumes:
+  #     - .:/project
+  #   command: cortex serve
+
+  # Neo4j graph database (optional, for production use)
+  # When enabled, set server.storage: neo4j in cortex.yaml
+  neo4j:
+    image: neo4j:5-community
+    container_name: cortex-neo4j
+    ports:
+      - "7687:7687"  # Bolt protocol
+      - "7474:7474"  # HTTP browser
+    environment:
+      - NEO4J_AUTH=neo4j/cortexdev
+      - NEO4J_dbms_memory_pagecache_size=512M
+      - NEO4J_dbms_memory_heap_max__size=1G
+    volumes:
+      - neo4j_data:/data
+    profiles:
+      - neo4j
+      - production
+
+  # Ollama for local LLM inference (optional)
+  # Uncomment if using local models for agents
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cortex-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    profiles:
+      - llm
+      - production
+
+volumes:
+  neo4j_data:
+  ollama_data:
